@@ -141,9 +141,6 @@ pub fn get_char(pixel: &image::Rgba<u8>) -> char {
         .map(|&c| c as f64)
         .sum::<f64>()
         / 3.0;
-    dbg!(avg_color);
-    dbg!(avg_color as usize);
-    dbg!((avg_color as usize).rem_euclid(ASCII_CHARS.len()));
 
     ASCII_CHARS
         .chars()
