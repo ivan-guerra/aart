@@ -1,9 +1,42 @@
+//! ASCII Art Generator Library
+//!
+//! This library provides functionality to convert images into ASCII art representations.
+//! It supports various configuration options such as image scaling and character aspect
+//! ratio adjustments to ensure the output appears proportional in terminal displays.
+//!
+//! # Features
+//!
+//! - Convert any image format supported by the `image` crate to ASCII art
+//! - Configurable scaling to control output size
+//! - Character aspect ratio correction for terminal display
+//! - Brightness-based character mapping for optimal visual representation
+//!
+//! # Example
+//!
+//! ```rust
+//! use aart::{Config, run};
+//! use std::path::PathBuf;
+//!
+//! let config = Config {
+//!     image_path: PathBuf::from("example.jpg"),
+//!     scale: 1.0,
+//!     char_width: 2,
+//!     char_height: 1,
+//! };
+//!
+//! run(&config).expect("Failed to convert image to ASCII art");
+//! ```
 use image::{GenericImageView, Pixel};
 
+/// Configuration parameters for ASCII art generation.
 pub struct Config {
+    /// Path to the source image file that will be converted to ASCII art
     pub image_path: std::path::PathBuf,
+    /// Scaling factor to resize the image before conversion (e.g., 0.5 for half size, 2.0 for double size)
     pub scale: f64,
+    /// Width of a single character in the terminal, used for aspect ratio correction
     pub char_width: u32,
+    /// Height of a single character in the terminal, used for aspect ratio correction
     pub char_height: u32,
 }
 
@@ -34,7 +67,38 @@ impl Default for Config {
     }
 }
 
-fn scale_image(image: image::DynamicImage, config: &Config) -> image::DynamicImage {
+/// Scales an image according to the provided configuration.
+///
+/// This function resizes the input image based on the scale factor and character dimensions
+/// specified in the config. It accounts for terminal character aspect ratio to ensure the
+/// output image appears proportional when displayed as ASCII art.
+///
+/// # Arguments
+///
+/// * `image` - The source image to be scaled
+/// * `config` - Configuration parameters containing scale factor and character dimensions
+///
+/// # Returns
+///
+/// Returns a new `DynamicImage` that has been scaled according to the configuration
+///
+/// # Example
+///
+/// ```
+/// use aart::{Config, scale_image};
+/// use image::DynamicImage;
+///
+/// let img = DynamicImage::new_rgb8(100, 100);
+/// let config = Config {
+///     scale: 2.0,
+///     char_width: 2,
+///     char_height: 1,
+///     ..Default::default()
+/// };
+///
+/// let scaled = scale_image(img, &config);
+/// ```
+pub fn scale_image(image: image::DynamicImage, config: &Config) -> image::DynamicImage {
     let char_scale = config.char_width as f64 / config.char_height as f64;
     let (width, height) = image.dimensions();
     let new_width = (width as f64 * config.scale) as u32;
@@ -43,6 +107,30 @@ fn scale_image(image: image::DynamicImage, config: &Config) -> image::DynamicIma
     image.resize(new_width, new_height, image::imageops::FilterType::Nearest)
 }
 
+/// Converts a pixel's color values to a corresponding ASCII character based on brightness.
+///
+/// This function takes an RGBA pixel and returns an ASCII character that represents
+/// its brightness level. It calculates the average of RGB channels (ignoring alpha)
+/// and maps it to a character from a predefined set of ASCII characters ranging from
+/// darkest (' ') to brightest ('$').
+///
+/// # Arguments
+///
+/// * `pixel` - An RGBA pixel from the image
+///
+/// # Returns
+///
+/// Returns a character from the ASCII set that corresponds to the pixel's brightness
+///
+/// # Example
+///
+/// ```
+/// use image::Rgba;
+/// use aart::get_char;
+///
+/// let pixel = Rgba([128, 128, 128, 255]); // Medium grey pixel
+/// let ascii_char = get_char(&pixel);
+/// ```
 pub fn get_char(pixel: &image::Rgba<u8>) -> char {
     static ASCII_CHARS: &str =
         " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
@@ -63,6 +151,40 @@ pub fn get_char(pixel: &image::Rgba<u8>) -> char {
         .unwrap()
 }
 
+/// Converts an image into ASCII art representation.
+///
+/// This function takes a source image and configuration parameters to produce
+/// an ASCII art string. The process involves scaling the image according to
+/// the configuration and then converting each pixel to a corresponding ASCII
+/// character based on its brightness.
+///
+/// # Arguments
+///
+/// * `image` - The source image to convert to ASCII art
+/// * `config` - Configuration parameters for scaling and character dimensions
+///
+/// # Returns
+///
+/// Returns a String containing the ASCII art representation of the image,
+/// with newline characters separating each row.
+///
+/// # Example
+///
+/// ```
+/// use aart::{Config, convert_image_to_ascii};
+/// use image::DynamicImage;
+///
+/// let img = DynamicImage::new_rgb8(100, 100);
+/// let config = Config {
+///     scale: 1.0,
+///     char_width: 2,
+///     char_height: 1,
+///     ..Default::default()
+/// };
+///
+/// let ascii_art = convert_image_to_ascii(img, &config);
+/// println!("{}", ascii_art);
+/// ```
 pub fn convert_image_to_ascii(image: image::DynamicImage, config: &Config) -> String {
     let image = scale_image(image, config);
     let (width, height) = image.dimensions();
@@ -79,6 +201,45 @@ pub fn convert_image_to_ascii(image: image::DynamicImage, config: &Config) -> St
     ascii_image
 }
 
+/// Executes the main ASCII art conversion process.
+///
+/// This function orchestrates the complete process of converting an image to ASCII art:
+/// 1. Opens the image file specified in the configuration
+/// 2. Converts the image to ASCII art
+/// 3. Prints the result to standard output
+///
+/// # Arguments
+///
+/// * `config` - Configuration parameters including the image path and conversion settings
+///
+/// # Returns
+///
+/// Returns `Ok(())` if successful, or an error if the image cannot be opened or processed
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// - The image file cannot be found or opened
+/// - The image format is invalid or unsupported
+///
+/// # Example
+///
+/// ```
+/// use aart::{Config, run};
+/// use std::path::PathBuf;
+///
+/// let config = Config {
+///     image_path: PathBuf::from("image.jpg"),
+///     scale: 1.0,
+///     char_width: 2,
+///     char_height: 1,
+/// };
+///
+/// match run(&config) {
+///     Ok(_) => println!("Successfully converted image to ASCII art"),
+///     Err(e) => eprintln!("Error: {}", e),
+/// }
+/// ```
 pub fn run(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let image = image::open(&config.image_path)?;
     let ascii_image = convert_image_to_ascii(image, config);
